@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cruci Spirale</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    margin: 0;
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 15px;
+    padding: 30px 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  }
+  h1 {
+    text-align: center;
+    color: #4a5568;
+    margin: 0 0 5px 0;
+    font-size: 2.2rem;
+  }
+  .subtitle {
+    text-align: center;
+    color: #718096;
+    margin: 0 0 20px 0;
+    font-size: 0.95rem;
+  }
+  .instructions {
+    background: #edf2f7;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin: 15px 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+    font-size: 13px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-color {
+    width: 20px; height: 20px;
+    border: 2px solid #4a5568;
+    border-radius: 3px;
+  }
+  #spiral-wrapper {
+    position: relative;
+    width: 380px;
+    height: 380px;
+    margin: 25px auto;
+  }
+  #spiral-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    width: 100%;
+    height: 100%;
+  }
+  #spiral-cells {
+    position: absolute;
+    inset: 0;
+  }
+  .cell {
+    position: absolute;
+    border: 2px solid #4a5568;
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 5px;
+    transform-origin: center center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  }
+  .cell.first-word { background: #9ae6b4; color: #22543d; }
+  .cell.end-letter { background: #faf089; color: #744210; }
+  .cell.start-cell { box-shadow: 0 0 0 3px #e53e3e, 0 1px 3px rgba(0,0,0,0.2); }
+  .cell input {
+    width: 100%; height: 100%;
+    border: none; outline: none;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    background: transparent;
+    color: #2d3748;
+    text-transform: uppercase;
+    padding: 0;
+    font-family: inherit;
+    border-radius: 5px;
+  }
+  .cell input:focus { background: #e6f7ff; }
+  .cell input.correct { color: #22543d; background: #c6f6d5; }
+  .cell input.incorrect { color: #742a2a; background: #fed7d7; }
+  #controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+  }
+  button {
+    padding: 10px 15px;
+    font-size: 14px;
+    background: #4a5568;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-family: inherit;
+  }
+  button:hover { background: #2d3748; }
+  button.primary { background: #48bb78; }
+  button.primary:hover { background: #38a169; }
+  button.danger { background: #e53e3e; }
+  button.danger:hover { background: #c53030; }
+  #message {
+    text-align: center;
+    margin: 15px 0;
+    font-size: 16px;
+    min-height: 24px;
+    font-weight: 500;
+  }
+  #message.success { color: #22543d; }
+  #message.error { color: #742a2a; }
+  #word-list {
+    background: #f7fafc;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-top: 15px;
+    font-size: 13px;
+  }
+  #word-list strong { color: #4a5568; }
+  .word-slot { display: inline-block; margin-right: 10px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🌀 Cruci Spirale</h1>
+  <p class="subtitle">Il gioco enigmistico con parole italiane a catena</p>
+
+  <div class="instructions">
+    <strong>Come si gioca:</strong> completa le parole seguendo la spirale dal centro (●) verso l'esterno.
+    L'ultima lettera di ogni parola è anche la prima della parola successiva.
+    La prima parola (verde) e le lettere finali di ciascuna parola (gialle) sono già compilate come aiuto.
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background:#9ae6b4"></div><span>1ª parola</span></div>
+    <div class="legend-item"><div class="legend-color" style="background:#faf089"></div><span>Lettere finali</span></div>
+    <div class="legend-item"><div class="legend-color" style="background:white"></div><span>Da completare</span></div>
+  </div>
+
+  <div id="spiral-wrapper">
+    <svg id="spiral-bg" viewBox="-190 -190 380 380" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="spiral-cells"></div>
+  </div>
+
+  <div id="message"></div>
+
+  <div id="controls">
+    <button id="checkBtn" class="primary">✓ Verifica</button>
+    <button id="hintBtn">💡 Aiuto</button>
+    <button id="solveBtn">👁 Soluzione</button>
+    <button id="newBtn" class="danger">🔄 Nuova partita</button>
+  </div>
+
+  <div id="word-list"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ============================================================
+  // DATASET PAROLE ITALIANE
+  // ============================================================
+  const RAW_WORDS = `
+    APE OCA UVA ALA ARA AMO ERA IRA NEO ODE ORA ORO OSA USO ZIA ZIO
+    ANNO ARCO AUTO ALBA ALTO ASSE ATTO BENE BARA BASE BAIA
+    CANE CAPO CARO CASA CAVO CIAO CIBO COSA CENA CERA CIMA CONO CORO
+    DADO DAMA DICE DITO DONO DUNA
+    ERBA ECCO ENTE ESSA
+    FAME FATO FEDE FILO FINE FOCA FORO FAVA FINO
+    GARA GELO GITA GOLA
+    IDEA INNO
+    LAGO LANA LATO LAVA LEVA LINO LIRA LUCE LUNA LUPO LIDO LITE LEGA
+    MAGO MANO MARE META MITO MODA MOTO MURO MELA MOLO
+    NASO NAVE NERO NIDO NOCE NODO NOME NOTE NOVE NUDO NATO NONO
+    ODIO OLIO ORTO OSSO OSTE OCHE ORCA ORMA ORSO
+    PACE PALO PANE PARI PELO PENA PERA PESO PILA PINO PIPA POLO POMO POSA PURO
+    RAMO RANA RAPA RARO RENA RETE RIMA RIPA RISO RIVA ROSA RUDE RUGA RUPE RITO RASO
+    SALE SANO SEDE SEGA SEME SENO SERA SETA SETE SINO SODA SOLE SOLO SALA SOMA
+    TANA TELA TEMA TOMO TONO TORO TUBA TARA TOMA
+    UOVO URLO URTO
+    VASO VELA VELO VENA VERA VERO VETO VICE VINO VISO VITA VIVO VOGA VOLO VOTO
+    ZONA ZITA
+    AMARO AMORE ANIMA ARENA ASINO ALONE
+    BARCA BELLO BOSCO BASTA BIRRA BRANO BRAVO BUONO
+    CALDO CAMPO CANTO CARRO CIELO CORPO CROCE CUORE CASCO CELLA
+    DENTE DITTA DOLCE DONNA DORSO
+    ESAME ERICA EPICO ETICO
+    FESTA FIORE FIUME FORTE FUOCO FINTA FIRMA FOLLA FORMA FRODE FURBO
+    GESTO GIOCO GRANO GATTO GRADO
+    IDOLO ISOLA
+    LEGGE LEGNO LETTO LIBRO LUNGO LUOGO LATTE LINEA
+    MADRE MANTO MARCO MASSA MENTE METRO MONTE MONDO MORTO MUSEO
+    NONNO NOTTE NUOVO NORMA
+    OMBRA OPERA OPALE ONORE
+    PADRE PAESE PARTE PASTA PATTO PELLE PIANO POLLO PORTA POSTO PRATO PRIMO PUNTO PIEDE
+    QUADRO QUARTO
+    RADIO RAGNO RAZZA RITMO ROSSO RUOTA RESTO
+    SALTO SCALA SCOPO SCURO SECCO SEDIA SENSO SERIO SETTE SOGNO SOLDO SORTE SOTTO
+    SPADA SPIGA SPINA SUONO SANTO SCUDO
+    TAPPA TASSO TEMPO TENDA TERRA TESTA TESTO TETTO TIGRE TORRE TORTA TRAMA TRENO TUONO
+    UMANO UMILE UMORE UNICO
+    VERDE VIDEO VILLA VIOLA VOLPE VOLTA VASTO VENTO VERSO VINTO
+    ZAINO ZAMPA ZANNA
+    IMPERO ITALIA ORDINE PIAZZA REGALO REGINA REGOLA SPAZIO STELLA STORIA STRADA STUDIO
+    TEATRO TITOLO CUCINA CUPOLA EUROPA NUVOLA OCEANO PAGINA PATATA SANGUE SAPONE SCUOLA
+    SEMPRE SUBITO UGUALE VALORE VELOCE VICINO CENTRO STANZA
+  `;
+
+  const WORDS = [...new Set(
+    RAW_WORDS.trim().split(/\s+/)
+      .map(w => w.toUpperCase())
+      .filter(w => /^[A-Z]+$/.test(w) && w.length >= 3)
+  )];
+
+  const wordIndex = {};
+  for (const w of WORDS) {
+    const len = w.length, start = w[0];
+    if (!wordIndex[len]) wordIndex[len] = {};
+    if (!wordIndex[len][start]) wordIndex[len][start] = [];
+    wordIndex[len][start].push(w);
+  }
+  function getWords(len, start) {
+    return (wordIndex[len] && wordIndex[len][start]) || [];
+  }
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function generatePuzzle(lengths) {
+    function backtrack(index, startLetter, chosen) {
+      if (index >= lengths.length) return chosen.slice();
+      const len = lengths[index];
+      const pool = startLetter
+        ? getWords(len, startLetter)
+        : Object.values(wordIndex[len] || {}).flat();
+      for (const word of shuffle(pool)) {
+        if (chosen.includes(word)) continue;
+        const endLetter = word[word.length - 1];
+        if (index < lengths.length - 1) {
+          if (getWords(lengths[index + 1], endLetter).length === 0) continue;
+        }
+        chosen.push(word);
+        const result = backtrack(index + 1, endLetter, chosen);
+        if (result) return result;
+        chosen.pop();
+      }
+      return null;
+    }
+    return backtrack(0, null, []);
+  }
+
+  // ============================================================
+  // SPIRALE ARCHIMEDEA — posizioni e orientamenti delle caselle
+  // ============================================================
+  const CELL_SIZE = 34;
+  const TURN_GAP = 40;
+  const STEP = 38;
+  const B = TURN_GAP / (2 * Math.PI);
+
+  function computeSpiralCells(N) {
+    const cells = [];
+    let theta = Math.PI * 0.9;
+    for (let i = 0; i < N; i++) {
+      const r = B * theta;
+      const x = r * Math.cos(theta);
+      const y = r * Math.sin(theta);
+      const tanX = B * Math.cos(theta) - r * Math.sin(theta);
+      const tanY = B * Math.sin(theta) + r * Math.cos(theta);
+      const rotation = Math.atan2(tanY, tanX) * 180 / Math.PI;
+      cells.push({ x, y, rotation });
+      const dtheta = STEP / Math.sqrt(r * r + B * B);
+      theta += dtheta;
+    }
+    return cells;
+  }
+
+  function buildSpiralPath(maxTheta) {
+    let d = '';
+    for (let t = 0.05; t <= maxTheta; t += 0.05) {
+      const r = B * t;
+      const x = r * Math.cos(t);
+      const y = r * Math.sin(t);
+      d += (d === '' ? 'M ' : ' L ') + x.toFixed(2) + ' ' + y.toFixed(2);
+    }
+    return d;
+  }
+
+  // ============================================================
+  // STATO DEL GIOCO
+  // ============================================================
+  const WORD_LENGTHS = [3, 4, 4, 5, 5, 4];
+  let currentPuzzle = null;
+  let cellData = [];
+  let wordRanges = [];
+
+  function buildPuzzle() {
+    currentPuzzle = generatePuzzle(WORD_LENGTHS);
+    if (!currentPuzzle) { showMessage('Errore generazione. Riprova.', 'error'); return; }
+
+    const totalCells = WORD_LENGTHS.reduce((s, l, i) => s + (i === 0 ? l : l - 1), 0);
+    const positions = computeSpiralCells(totalCells);
+
+    cellData = positions.map(p => ({
+      x: p.x, y: p.y, rotation: p.rotation, letter: '',
+      revealed: false, isFirstWord: false, isEndLetter: false
+    }));
+
+    wordRanges = [];
+    let cellIdx = 0;
+    currentPuzzle.forEach((word, wi) => {
+      const startIdx = cellIdx;
+      for (let li = 0; li < word.length; li++) {
+        const ci = cellIdx + li;
+        if (!cellData[ci].letter) cellData[ci].letter = word[li];
+        if (wi === 0) {
+          cellData[ci].revealed = true;
+          cellData[ci].isFirstWord = true;
+        }
+        if (li === word.length - 1) {
+          cellData[ci].revealed = true;
+          if (wi > 0) cellData[ci].isEndLetter = true;
+        }
+      }
+      wordRanges.push({ start: startIdx, end: cellIdx + word.length - 1, length: word.length });
+      cellIdx += word.length - 1;
+    });
+
+    render();
+    renderWordList();
+    showMessage('');
+  }
+
+  function render() {
+    const svg = document.getElementById('spiral-bg');
+    svg.innerHTML = '';
+    const maxR = Math.max(...cellData.map(c => Math.sqrt(c.x * c.x + c.y * c.y)));
+    const maxTheta = (maxR / B) + 1.0;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', buildSpiralPath(maxTheta));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#cbd5e0');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(path);
+
+    const layer = document.getElementById('spiral-cells');
+    layer.innerHTML = '';
+    const containerCenter = 190;
+
+    cellData.forEach((c, i) => {
+      const div = document.createElement('div');
+      div.className = 'cell';
+      if (i === 0) div.classList.add('start-cell');
+      div.style.width = CELL_SIZE + 'px';
+      div.style.height = CELL_SIZE + 'px';
+      div.style.left = (containerCenter + c.x - CELL_SIZE / 2) + 'px';
+      div.style.top = (containerCenter + c.y - CELL_SIZE / 2) + 'px';
+      div.style.transform = 'rotate(' + c.rotation + 'deg)';
+
+      if (c.revealed) {
+        div.classList.add(c.isFirstWord ? 'first-word' : 'end-letter');
+        div.textContent = c.letter;
+      } else {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 1;
+        input.dataset.index = i;
+        input.addEventListener('input', onInput);
+        input.addEventListener('keydown', onKeyDown);
+        input.addEventListener('focus', function() { this.select(); });
+        div.appendChild(input);
+      }
+      layer.appendChild(div);
+    });
+  }
+
+  function renderWordList() {
+    const el = document.getElementById('word-list');
+    const items = wordRanges.map((r, i) =>
+      '<span class="word-slot"><strong>' + (i+1) + '.</strong> ' + r.length + ' lettere</span>'
+    ).join('');
+    el.innerHTML = '<strong>Parole da trovare:</strong> ' + items;
+  }
+
+  function onInput(e) {
+    const input = e.target;
+    input.classList.remove('correct', 'incorrect');
+    input.value = input.value.toUpperCase().replace(/[^A-Z]/g, '');
+    if (input.value) focusNextInput(parseInt(input.dataset.index));
+  }
+  function onKeyDown(e) {
+    const idx = parseInt(e.target.dataset.index);
+    if (e.key === 'Backspace' && !e.target.value) { focusPrevInput(idx); e.preventDefault(); }
+    else if (e.key === 'ArrowRight') { focusNextInput(idx); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft')  { focusPrevInput(idx); e.preventDefault(); }
+  }
+  function focusNextInput(fromIdx) {
+    for (let i = fromIdx + 1; i < cellData.length; i++) {
+      const el = document.querySelector('input[data-index="' + i + '"]');
+      if (el) { el.focus(); return; }
+    }
+  }
+  function focusPrevInput(fromIdx) {
+    for (let i = fromIdx - 1; i >= 0; i--) {
+      const el = document.querySelector('input[data-index="' + i + '"]');
+      if (el) { el.focus(); return; }
+    }
+  }
+  function showMessage(text, type) {
+    const m = document.getElementById('message');
+    m.textContent = text;
+    m.className = type || '';
+  }
+  function checkAll() {
+    let allCorrect = true, anyFilled = false;
+    cellData.forEach((c, i) => {
+      if (c.revealed) return;
+      const input = document.querySelector('input[data-index="' + i + '"]');
+      if (!input) return;
+      const v = input.value.toUpperCase();
+      if (!v) { allCorrect = false; return; }
+      anyFilled = true;
+      if (v === c.letter) { input.classList.add('correct'); input.classList.remove('incorrect'); }
+      else { input.classList.add('incorrect'); input.classList.remove('correct'); allCorrect = false; }
+    });
+    if (!anyFilled) showMessage('Inserisci almeno una lettera!', 'error');
+    else if (allCorrect) showMessage('🎉 Complimenti! Spirale completata!', 'success');
+    else showMessage('Ci sono alcuni errori. Riprova!', 'error');
+  }
+  function giveHint() {
+    const empties = [];
+    cellData.forEach((c, i) => {
+      if (c.revealed) return;
+      const input = document.querySelector('input[data-index="' + i + '"]');
+      if (input && !input.value) empties.push({ input, letter: c.letter });
+    });
+    if (empties.length === 0) { showMessage('Nessuna casella vuota!', 'error'); return; }
+    const pick = empties[Math.floor(Math.random() * empties.length)];
+    pick.input.value = pick.letter;
+    pick.input.classList.add('correct');
+    showMessage('💡 Ecco un aiuto!', 'success');
+  }
+  function solveAll() {
+    cellData.forEach((c, i) => {
+      if (c.revealed) return;
+      const input = document.querySelector('input[data-index="' + i + '"]');
+      if (input) { input.value = c.letter; input.classList.add('correct'); input.classList.remove('incorrect'); }
+    });
+    showMessage('Soluzione: ' + currentPuzzle.join(' → '), 'success');
+  }
+
+  document.getElementById('checkBtn').addEventListener('click', checkAll);
+  document.getElementById('hintBtn').addEventListener('click', giveHint);
+  document.getElementById('solveBtn').addEventListener('click', solveAll);
+  document.getElementById('newBtn').addEventListener('click', buildPuzzle);
+
+  buildPuzzle();
+})();
+</script>
+</body>
+</html>

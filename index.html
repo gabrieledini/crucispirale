@@ -58,9 +58,10 @@
   }
   #spiral-wrapper {
     position: relative;
-    width: 380px;
-    height: 380px;
+    width: 440px;
+    height: 440px;
     margin: 25px auto;
+    max-width: 100%;
   }
   #spiral-bg {
     position: absolute;
@@ -157,6 +158,7 @@
     <strong>Come si gioca:</strong> completa le parole seguendo la spirale dal centro (●) verso l'esterno.
     L'ultima lettera di ogni parola è anche la prima della parola successiva.
     La prima parola (verde) e le lettere finali di ciascuna parola (gialle) sono già compilate come aiuto.
+    <br><em>Va bene qualsiasi parola italiana che rispetti lunghezza, iniziale e finale.</em>
   </div>
 
   <div class="legend">
@@ -166,7 +168,7 @@
   </div>
 
   <div id="spiral-wrapper">
-    <svg id="spiral-bg" viewBox="-190 -190 380 380" xmlns="http://www.w3.org/2000/svg"></svg>
+    <svg id="spiral-bg" viewBox="-220 -220 440 440" xmlns="http://www.w3.org/2000/svg"></svg>
     <div id="spiral-cells"></div>
   </div>
 
@@ -230,9 +232,47 @@
     UMANO UMILE UMORE UNICO
     VERDE VIDEO VILLA VIOLA VOLPE VOLTA VASTO VENTO VERSO VINTO
     ZAINO ZAMPA ZANNA
-    IMPERO ITALIA ORDINE PIAZZA REGALO REGINA REGOLA SPAZIO STELLA STORIA STRADA STUDIO
-    TEATRO TITOLO CUCINA CUPOLA EUROPA NUVOLA OCEANO PAGINA PATATA SANGUE SAPONE SCUOLA
-    SEMPRE SUBITO UGUALE VALORE VELOCE VICINO CENTRO STANZA
+    AMICHE ANCORA APRILE ATTORE AZIONE ARMATA ARNESE ALTARE ANDATA ARANCI ANELLO
+    BIANCO BRANCO BOTOLA BAGAGLIO
+    CAMION CANALE CARICA CASTRO CERNITA COPPIA CUCIRE
+    DENARO DOMANI DIVANO DENTRO DESTRA DOLORE DOMARE
+    ESTATE EROICO EREDITA ESTESO ESPERTA
+    FOGLIA FAVOLA FERIALE FEROCE FIDATO FUNGHI
+    GIORNO GIUSTO GELATO GEMELLO
+    IMPERO ITALIA ISOLANO ISRAEL
+    LAVORO LIEVITO LUCIDO LATRARE
+    MATITA MELONE MONETA MINUTO METALLO MONDIA
+    NIPOTE NIENTE NOTARE NARICE
+    ORDINE OSCURO OCEANO OPERAIO ORIGINA
+    PIAZZA PAROLA PANINO PARATA PERITO PEDANA POTERE PIATTO
+    REGALO REGINA REGOLA ROMANO RINATO RAPIDA RUSCELLO
+    SPAZIO STELLA STORIA STRADA STUDIO SECOLO SOLARE SALTARE SICURO SILURO SIMILE
+    TEATRO TITOLO TAVOLO TORERO TREMARE
+    CUCINA CUPOLA CUORICINO
+    EUROPA ESPERTO
+    NUVOLA NEGARE
+    PAGINA PATATA
+    SANGUE SAPONE SCUOLA SEMPRE SUBITO
+    UGUALE USCITA UTENTE UMANITA
+    VALORE VELOCE VICINO VITALE VENETO VIALE
+    CENTRO STANZA ZUCCARO
+    ANIMALE ALBERGO ARMADIO AUTISTA ACCIAIO ANTENNA ARANCIA ARMONIA ASCOLTO
+    BAMBINO BAMBOLA BATTUTA BEFFARE BICCHIERE
+    CAMPANA CAPELLO CERCHIO COLONNA CONSOLE CANTINA CAPANNA CONDOR
+    DOCCIA DELFINO DOPPIONE DOMANDA DEBITORE
+    ENTRATA ESEMPIO EDUCARE ENERGIA ESTERNO
+    FORTUNA FORMICA FASCINO FINTURA FANTOCCIO FERRARI FUGGIRE
+    GIOVANE GUSTOSO GALASSIA GELOSIA GENTILE GIARDINI
+    INSETTO INVERNO IMPATTO INSIEME INTORNO IMBRATTO
+    LIBERTA LETTORE LAMPADE LATTINA LIBRAIO LACERTO
+    MATTINA MEMORIA MODELLO MATTONE MERLUZZO MISSIONE
+    OFFERTA OSTERIA OGGETTO ORIGINE OVERDOSE
+    PARTITA PATTINO PIACERE PIANETA PITTORE PARLARE PAGELLA PENSARE PORTONE POLENTA PALAZZO
+    RAGAZZO ROMANZO RICORDO RITORNO ROTONDA RICETTA RUMORE
+    SORRISO SORELLA SISTEMA SETTORE SOSTARE SALTARE
+    TAVERNA TERMINE TORNATA TAPPETO TORRONE
+    UMILITA URGENTE UMIDITA UNISONO
+    VACANZA VITTIMA VISIONE VIAGGIO VINCITA VERDURA
   `;
 
   const WORDS = [...new Set(
@@ -240,6 +280,8 @@
       .map(w => w.toUpperCase())
       .filter(w => /^[A-Z]+$/.test(w) && w.length >= 3)
   )];
+
+  const WORDS_SET = new Set(WORDS);
 
   const wordIndex = {};
   for (const w of WORDS) {
@@ -322,7 +364,7 @@
   // ============================================================
   // STATO DEL GIOCO
   // ============================================================
-  const WORD_LENGTHS = [3, 4, 4, 5, 5, 4];
+  const WORD_LENGTHS = [3, 4, 5, 6, 7];
   let currentPuzzle = null;
   let cellData = [];
   let wordRanges = [];
@@ -379,7 +421,7 @@
 
     const layer = document.getElementById('spiral-cells');
     layer.innerHTML = '';
-    const containerCenter = 190;
+    const containerCenter = 220;
 
     cellData.forEach((c, i) => {
       const div = document.createElement('div');
@@ -446,20 +488,52 @@
     m.className = type || '';
   }
   function checkAll() {
-    let allCorrect = true, anyFilled = false;
-    cellData.forEach((c, i) => {
-      if (c.revealed) return;
-      const input = document.querySelector('input[data-index="' + i + '"]');
-      if (!input) return;
-      const v = input.value.toUpperCase();
-      if (!v) { allCorrect = false; return; }
-      anyFilled = true;
-      if (v === c.letter) { input.classList.add('correct'); input.classList.remove('incorrect'); }
-      else { input.classList.add('incorrect'); input.classList.remove('correct'); allCorrect = false; }
+    let allValid = true;
+    let anyFilled = false;
+    const invalidWords = [];
+
+    wordRanges.forEach((range, wi) => {
+      // Costruisci la parola inserita per questo slot
+      let userWord = '';
+      let complete = true;
+      const editableInputs = [];
+      for (let i = range.start; i <= range.end; i++) {
+        const c = cellData[i];
+        if (c.revealed) {
+          userWord += c.letter;
+        } else {
+          const input = document.querySelector('input[data-index="' + i + '"]');
+          const v = input ? input.value.toUpperCase() : '';
+          if (!v) { complete = false; break; }
+          userWord += v;
+          editableInputs.push(input);
+          anyFilled = true;
+        }
+      }
+
+      if (!complete) { allValid = false; return; }
+
+      const isValid = WORDS_SET.has(userWord);
+      editableInputs.forEach(inp => {
+        inp.classList.remove('correct', 'incorrect');
+        inp.classList.add(isValid ? 'correct' : 'incorrect');
+      });
+
+      if (!isValid) {
+        allValid = false;
+        invalidWords.push(userWord);
+      }
     });
-    if (!anyFilled) showMessage('Inserisci almeno una lettera!', 'error');
-    else if (allCorrect) showMessage('🎉 Complimenti! Spirale completata!', 'success');
-    else showMessage('Ci sono alcuni errori. Riprova!', 'error');
+
+    if (!anyFilled) {
+      showMessage('Inserisci almeno una lettera!', 'error');
+    } else if (allValid) {
+      showMessage('🎉 Complimenti! Tutte le parole sono valide!', 'success');
+    } else if (invalidWords.length > 0) {
+      showMessage('Non trovate nel dizionario: ' + invalidWords.join(', '), 'error');
+    } else {
+      showMessage('Completa tutte le parole per verificare.', 'error');
+    }
   }
   function giveHint() {
     const empties = [];
